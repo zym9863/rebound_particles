@@ -1,7 +1,8 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 import 'package:vector_math/vector_math_64.dart' hide Colors;
 import '../models/particle.dart';
 import '../models/container.dart';
@@ -17,6 +18,8 @@ class ParticleSimulation extends StatefulWidget {
 
 class _ParticleSimulationState extends State<ParticleSimulation>
     with SingleTickerProviderStateMixin {
+  // 平台检测
+  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
   // 动画控制器
   late AnimationController _controller;
   
@@ -229,13 +232,16 @@ class _ParticleSimulationState extends State<ParticleSimulation>
       _selectedParticle = closestParticle;
       _generateTrajectoryPrediction(_selectedParticle!, 1.5); // 1.5秒的预测轨迹
       
-      // 1.5秒后清除预测轨迹
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        setState(() {
-          _predictedTrajectory.clear();
-          _selectedParticle = null;
+      // 在移动设备上，保持选中状态直到下一次点击
+      if (!_isMobile) {
+        // 在桌面设备上，1.5秒后清除预测轨迹
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          setState(() {
+            _predictedTrajectory.clear();
+            _selectedParticle = null;
+          });
         });
-      });
+      }
     }
   }
   
@@ -311,35 +317,48 @@ class _ParticleSimulationState extends State<ParticleSimulation>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.darkSpaceBlack,
-      body: MouseRegion(
-        onHover: _handleHover,
-        child: GestureDetector(
-          onTapDown: _handleTap,
-          child: Center(
-            child: Stack(
-              children: [
-                // 粒子模拟
-                CustomPaint(
-                  painter: ParticleRenderer(
-                    particles: _particles,
-                    container: _container,
-                    hoveredParticle: _hoveredParticle,
-                    selectedParticle: _selectedParticle,
-                    predictedTrajectory: _predictedTrajectory,
-                    pulseOrigin: _pulseOrigin,
-                    pulseRadius: _pulseRadius,
-                    pulseAlpha: _pulseAlpha,
-                    isPulseActive: _isPulseActive,
-                  ),
-                  size: Size.infinite,
-                ),
-                
-                // 悬停信息显示
-                if (_hoveredParticle != null)
-                  Positioned(
-                    left: 20,
-                    bottom: 20,
-                    child: Container(
+      body: _isMobile
+          ? GestureDetector(
+              onTapDown: _handleTap,
+              child: _buildSimulationContent(context),
+            )
+          : MouseRegion(
+              onHover: _handleHover,
+              child: GestureDetector(
+                onTapDown: _handleTap,
+                child: _buildSimulationContent(context),
+              ),
+            ),
+    );
+  }
+  
+  // 构建模拟内容
+  Widget _buildSimulationContent(BuildContext context) {
+    return Center(
+      child: Stack(
+        children: [
+          // 粒子模拟
+          CustomPaint(
+            painter: ParticleRenderer(
+              particles: _particles,
+              container: _container,
+              hoveredParticle: _hoveredParticle,
+              selectedParticle: _selectedParticle,
+              predictedTrajectory: _predictedTrajectory,
+              pulseOrigin: _pulseOrigin,
+              pulseRadius: _pulseRadius,
+              pulseAlpha: _pulseAlpha,
+              isPulseActive: _isPulseActive,
+            ),
+            size: Size.infinite,
+          ),
+          
+          // 粒子信息显示 - 在移动设备上显示选中的粒子信息，在桌面设备上显示悬停的粒子信息
+          if (_isMobile ? _selectedParticle != null : _hoveredParticle != null)
+            Positioned(
+              left: 20,
+              bottom: 20,
+              child: Container(
                       padding: const EdgeInsets.all(15),
                       decoration: BoxDecoration(
                         color: AppColors.darkSpaceBlack.withOpacity(0.7),
@@ -360,26 +379,23 @@ class _ParticleSimulationState extends State<ParticleSimulation>
                           ),
                           const SizedBox(height: 10),
                           _buildParticleInfoRow('位置', 
-                            'X: ${_hoveredParticle!.position.x.toStringAsFixed(1)} ' 
-                            'Y: ${_hoveredParticle!.position.y.toStringAsFixed(1)} ' 
-                            'Z: ${_hoveredParticle!.position.z.toStringAsFixed(1)}'),
+                            'X: ${(_isMobile ? _selectedParticle! : _hoveredParticle!).position.x.toStringAsFixed(1)} ' 
+                            'Y: ${(_isMobile ? _selectedParticle! : _hoveredParticle!).position.y.toStringAsFixed(1)} ' 
+                            'Z: ${(_isMobile ? _selectedParticle! : _hoveredParticle!).position.z.toStringAsFixed(1)}'),
                           _buildParticleInfoRow('速度', 
-                            '${_hoveredParticle!.velocity.length.toStringAsFixed(1)} 单位/秒'),
+                            '${(_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.length.toStringAsFixed(1)} 单位/秒'),
                           _buildParticleInfoRow('方向', 
-                            '${(math.atan2(_hoveredParticle!.velocity.z, _hoveredParticle!.velocity.x) * 180 / math.pi).toStringAsFixed(1)}°'),
+                            '${(math.atan2((_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.z, (_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.x) * 180 / math.pi).toStringAsFixed(1)}°'),
                           _buildParticleInfoRow('能量', 
-                            '${(_hoveredParticle!.velocity.length * _hoveredParticle!.radius).toStringAsFixed(1)} 焦耳'),
+                            '${((_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.length * (_isMobile ? _selectedParticle! : _hoveredParticle!).radius).toStringAsFixed(1)} 焦耳'),
                         ],
                       ),
                     ),
                   ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
+          );
+        }
   
   // 构建粒子信息行
   Widget _buildParticleInfoRow(String label, String value) {

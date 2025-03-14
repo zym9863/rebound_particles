@@ -106,7 +106,6 @@ class ParticleRenderer extends CustomPainter {
     for (int i = 0; i < 36; i++) {
       final angle = i * (math.pi / 18);
       final x = container.cylinderRadius * math.cos(angle + container.rotationAngle) * scale;
-      final z = container.cylinderRadius * math.sin(angle + container.rotationAngle) * scale;
       
       // 使用渐变效果绘制侧面线条
       final linePaint = Paint()
