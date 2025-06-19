@@ -24,6 +24,9 @@ jobs:
       with:
         flutter-version: '3.32.4'  # 使用稳定版本
         channel: 'stable'
+
+    - name: Enable Windows desktop support
+      run: flutter config --enable-windows-desktop
         
     - name: Get dependencies
       run: flutter pub get
