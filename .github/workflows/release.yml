@@ -37,9 +37,8 @@ jobs:
     - name: Create Windows release archive
       run: |
         cd build\windows\x64\runner\Release
-        7z a -tzip ..\..\..\..\rebound_particles_windows.zip *
-      shell: cmd
-      
+        Compress-Archive -Path * -DestinationPath ../../../../../rebound_particles_windows.zip
+
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
