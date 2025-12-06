@@ -37,6 +37,10 @@ class _ParticleSimulationState extends State<ParticleSimulation>
   
   // 粒子数量
   final int _particleCount = 25;
+
+  // 参数控制
+  double _particleSpeed = 35.0; // 粒子速度控制
+  double _particleRadius = 4.5;  // 粒子半径控制
   
   // 交互状态
   Particle? _hoveredParticle;
@@ -114,19 +118,19 @@ class _ParticleSimulationState extends State<ParticleSimulation>
         radius * math.sin(angle),
       );
       
-      // 随机速度
-      final speed = 20.0 + _random.nextDouble() * 30.0;
+      // 基于控制参数的速度
+      final speed = _particleSpeed; // 使用控制参数，不再随机
       final velocityAngle = _random.nextDouble() * 2 * math.pi;
       final velocityHeight = -0.5 + _random.nextDouble();
-      
+
       final velocity = Vector3(
         speed * math.cos(velocityAngle),
         speed * velocityHeight,
         speed * math.sin(velocityAngle),
       );
-      
-      // 随机半径
-      final particleRadius = 3.0 + _random.nextDouble() * 3.0;
+
+      // 基于控制参数的半径
+      final particleRadius = _particleRadius; // 使用控制参数，不再随机
       
       // 创建粒子
       final particle = Particle(
@@ -278,6 +282,32 @@ class _ParticleSimulationState extends State<ParticleSimulation>
     setState(() {});
   }
   
+  // 更新所有粒子的速度
+  void _updateAllParticlesSpeed(double newSpeed) {
+    setState(() {
+      _particleSpeed = newSpeed;
+      // 更新所有粒子的速度向量
+      for (final particle in _particles) {
+        final currentSpeed = particle.velocity.length;
+        if (currentSpeed > 0) {
+          // 保持速度方向不变，只改变大小
+          particle.velocity = particle.velocity.normalized() * newSpeed;
+        }
+      }
+    });
+  }
+
+  // 更新所有粒子的半径
+  void _updateAllParticlesRadius(double newRadius) {
+    setState(() {
+      _particleRadius = newRadius;
+      // 更新所有粒子的半径
+      for (final particle in _particles) {
+        particle.radius = newRadius;
+      }
+    });
+  }
+
   // 生成轨迹预测
   void _generateTrajectoryPrediction(Particle particle, double duration) {
     _predictedTrajectory.clear();
@@ -352,50 +382,127 @@ class _ParticleSimulationState extends State<ParticleSimulation>
             ),
             size: Size.infinite,
           ),
-          
+
           // 粒子信息显示 - 在移动设备上显示选中的粒子信息，在桌面设备上显示悬停的粒子信息
-          if (_isMobile ? _selectedParticle != null : _hoveredParticle != null)
-            Positioned(
+          if ((_isMobile && _selectedParticle != null) || (!_isMobile && _hoveredParticle != null))
+            const Positioned(
               left: 20,
               bottom: 20,
-              child: Container(
-                      padding: const EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkSpaceBlack.withOpacity(0.7),
-                        border: Border.all(color: AppColors.quantumBlue, width: 1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              child: SizedBox(), // 暂时移除复杂的信息显示，简化测试
+            ),
+
+          // 实时参数控制面板
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              margin: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.7),
+                border: Border.all(color: Colors.blue, width: 1),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 控制面板标题
+                  const Text(
+                    '参数控制面板',
+                    style: TextStyle(
+                      color: Colors.cyan,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+
+                  // 速度控制滑块
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '量子粒子数据',
+                          const Text(
+                            '粒子速度 (Speed)',
                             style: TextStyle(
-                              color: AppColors.superCyanTeal,
-                              fontFamily: 'Orbitron',
-                              fontSize: 16,
+                              color: Color.fromARGB(229, 158, 158, 255), // 紫色半透明
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            '${_particleSpeed.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              color: Colors.blue.withOpacity(0.9),
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          _buildParticleInfoRow('位置', 
-                            'X: ${(_isMobile ? _selectedParticle! : _hoveredParticle!).position.x.toStringAsFixed(1)} ' 
-                            'Y: ${(_isMobile ? _selectedParticle! : _hoveredParticle!).position.y.toStringAsFixed(1)} ' 
-                            'Z: ${(_isMobile ? _selectedParticle! : _hoveredParticle!).position.z.toStringAsFixed(1)}'),
-                          _buildParticleInfoRow('速度', 
-                            '${(_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.length.toStringAsFixed(1)} 单位/秒'),
-                          _buildParticleInfoRow('方向', 
-                            '${(math.atan2((_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.z, (_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.x) * 180 / math.pi).toStringAsFixed(1)}°'),
-                          _buildParticleInfoRow('能量', 
-                            '${((_isMobile ? _selectedParticle! : _hoveredParticle!).velocity.length * (_isMobile ? _selectedParticle! : _hoveredParticle!).radius).toStringAsFixed(1)} 焦耳'),
                         ],
                       ),
-                    ),
+                      Slider(
+                        value: _particleSpeed,
+                        min: 10.0,
+                        max: 100.0,
+                        divisions: 90,
+                        activeColor: Colors.blue,
+                        inactiveColor: Colors.purple.withOpacity(0.3),
+                        onChanged: (value) {
+                          _updateAllParticlesSpeed(value);
+                        },
+                      ),
+                    ],
                   ),
-              ],
+
+                  const SizedBox(height: 15),
+
+                  // 半径控制滑块
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            '粒子半径 (Radius)',
+                            style: TextStyle(
+                              color: Color.fromARGB(229, 158, 158, 255), // 紫色半透明
+                              fontSize: 14,
+                            ),
+                          ),
+                          Text(
+                            '${_particleRadius.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              color: Colors.blue.withOpacity(0.9),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Slider(
+                        value: _particleRadius,
+                        min: 1.0,
+                        max: 10.0,
+                        divisions: 90,
+                        activeColor: Colors.blue,
+                        inactiveColor: Colors.purple.withOpacity(0.3),
+                        onChanged: (value) {
+                          _updateAllParticlesRadius(value);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          );
-        }
+          ),
+        ],
+      ),
+    );
+  }
   
   // 构建粒子信息行
   Widget _buildParticleInfoRow(String label, String value) {
